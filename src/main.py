@@ -7,6 +7,7 @@ from core.settings import settings
 from core.db_manager import DataBaseManager
 
 from api.v1.ruotings import router as router_v1
+from api.v1.errors import user_errors_handlers, auth_errors_handlers
 
 
 @asynccontextmanager
@@ -24,6 +25,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Auth Service", lifespan=lifespan)
 app.include_router(router=router_v1, prefix=settings.API_V1_PREFIX)
+user_errors_handlers.register_on_app(app)
+auth_errors_handlers.register_on_app(app)
 
 
 @app.get("/")

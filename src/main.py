@@ -1,11 +1,26 @@
 import uvicorn
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
 from core.settings import settings
+from core.db_manager import DataBaseManager
 
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # старт приложения: создаём engine + фабрику сессий
+    app.state.db = DataBaseManager(
+        url=settings.DATABASE.url, echo=settings.DATABASE.ECHO
+    )
+    try:
+        yield
+    finally:
+        # закрываем пул соединений
+        await app.state.db.dispose()
+
+
+app = FastAPI(title="Auth Service", lifespan=lifespan)
 
 
 @app.get("/")

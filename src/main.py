@@ -6,6 +6,8 @@ from fastapi import FastAPI
 from core.settings import settings
 from core.db_manager import DataBaseManager
 
+from api.v1.ruotings import router as router_v1
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -21,6 +23,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Auth Service", lifespan=lifespan)
+app.include_router(router=router_v1, prefix=settings.api_v1_prefix)
 
 
 @app.get("/")

@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     SERVICE_RELOAD: int = os.getenv("SERVICE_RELOAD")
 
     # == DataBase
-    db: SettingsDataBase = SettingsDataBase()
+    DATABASE: SettingsDataBase = SettingsDataBase()
 
 
 settings = Settings()

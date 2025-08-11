@@ -2,7 +2,7 @@ from fastapi import APIRouter, status, HTTPException
 
 from apps.users.schemas import UserCreate, UserRead
 
-from api.v1.api_depends import UsersSvcDep
+from api.v1.api_depends import UsersSvcDep, AccessJWT
 from api.v1.users.exceptions import EmailAlreadyUsedError
 
 
@@ -23,3 +23,19 @@ async def register_user(payload: UserCreate, svc: UsersSvcDep):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail="Email already registered"
         )
+
+
+@router.get(
+    "/me",
+    response_model=UserRead,
+    status_code=status.HTTP_200_OK,
+    summary="Current user profile",
+)
+async def me(access: AccessJWT, users: UsersSvcDep):
+    user_id = int(access["user_id"])
+    user = await users.get(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if not user.is_active:
+        raise HTTPException(status_code=403, detail="User is inactive")
+    return user

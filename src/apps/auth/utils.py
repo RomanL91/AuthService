@@ -2,11 +2,20 @@ import jwt
 from typing import Any, Dict
 from datetime import datetime, timedelta, timezone
 
-from fastapi import HTTPException, Request, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi import Request
+from fastapi.security import HTTPBearer
+from fastapi.security.utils import get_authorization_scheme_param
 
 from core.settings import settings
 from apps.auth.schemas import JWTSchema
+
+from api.v1.auth.exceptions import (
+    AuthHeaderMissingError,
+    AuthSchemeInvalidError,
+    TokenExpiredError,
+    TokenInvalidError,
+    TokenWrongTypeError,
+)
 
 
 class JWTUtil:
@@ -20,12 +29,12 @@ class JWTUtil:
     def __init__(self, auth_settings) -> None:
         self.private_key = auth_settings.private_key_path.read_text()
         self.public_key = auth_settings.public_key_path.read_text()
-        self.algorithm = auth_settings.algorithm  # "RS256"
-        self.access_token_expire = auth_settings.access_token_expire  # минуты
-        self.refresh_token_expire = auth_settings.refresh_token_expire  # минуты
-        self.token_type_field = auth_settings.token_type_field  # обычно "type"
-        self.access_token_type = auth_settings.access_token_type  # "access"
-        self.refresh_token_type = auth_settings.refresh_token_type  # "refresh"
+        self.algorithm = auth_settings.algorithm
+        self.access_token_expire = auth_settings.access_token_expire
+        self.refresh_token_expire = auth_settings.refresh_token_expire
+        self.token_type_field = auth_settings.token_type_field
+        self.access_token_type = auth_settings.access_token_type
+        self.refresh_token_type = auth_settings.refresh_token_type
 
     def _now(self) -> datetime:
         return datetime.now(timezone.utc)
@@ -44,9 +53,6 @@ class JWTUtil:
         token_type: str,
         extra: Dict[str, Any] | None = None,
     ) -> "JWTSchema":
-        from apps.auth.schemas import (
-            JWTSchema,
-        )  # локальный импорт, чтобы избежать циклов
 
         now = self._now()
         exp = now + timedelta(minutes=self._ttl_for_type(token_type))
@@ -72,7 +78,6 @@ class JWTUtil:
 
     def decode_jwt(self, token: str) -> dict:
         try:
-            # Требуем exp/iat, aud не используем
             return jwt.decode(
                 token,
                 key=self.public_key,
@@ -80,13 +85,9 @@ class JWTUtil:
                 options={"require": ["exp", "iat"], "verify_aud": False},
             )
         except jwt.ExpiredSignatureError:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="Token expired."
-            )
+            raise TokenExpiredError()
         except jwt.InvalidTokenError as e:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail=f"Invalid token: {e}"
-            )
+            raise TokenInvalidError(str(e))
 
     def get_type(self, payload: dict) -> str | None:
         return payload.get(self.token_type_field)
@@ -109,17 +110,17 @@ class JWTBearer(HTTPBearer):
         self.expected_token_type = expected_token_type
 
     async def __call__(self, request: Request) -> dict:
-        credentials: HTTPAuthorizationCredentials = await super().__call__(request)
-        if not credentials or credentials.scheme.lower() != "bearer":
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Invalid authentication scheme.",
-            )
-        payload = jwt_util.decode_jwt(credentials.credentials)
-        token_type = jwt_util.get_type(payload)
-        if token_type != self.expected_token_type:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid token type.",
-            )
+        auth: str | None = request.headers.get("Authorization")
+        if not auth:
+            raise AuthHeaderMissingError()
+
+        scheme, param = get_authorization_scheme_param(auth)
+        if not param:
+            raise AuthHeaderMissingError()
+        if scheme.lower() != "bearer":
+            raise AuthSchemeInvalidError()
+
+        payload = jwt_util.decode_jwt(param)
+        if jwt_util.get_type(payload) != self.expected_token_type:
+            raise TokenWrongTypeError()
         return payload

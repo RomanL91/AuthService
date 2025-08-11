@@ -3,17 +3,14 @@ from typing import Optional
 from dataclasses import dataclass
 
 from infra.UoW import UnitOfWork
+
 from apps.users.models import Users
 
-
-# Доменные ошибки — маппятся в роутере на 4xx/5xx
-class UserNotFoundError(Exception): ...
-
-
-class EmailAlreadyUsedError(Exception): ...
-
-
-class WrongPasswordError(Exception): ...
+from api.v1.users.exceptions import (
+    EmailAlreadyUsedError,
+    UserNotFoundError,
+    WrongPasswordError,
+)
 
 
 @dataclass

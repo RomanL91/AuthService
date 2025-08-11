@@ -26,10 +26,13 @@ class SettingsDataBase(BaseSettings):
 
 
 class Settings(BaseSettings):
-    # == setting server running
+    # == базовые настройки запуска сервиса
     SERVICE_HOST: str = os.getenv("SERVICE_HOST")
     SERVICE_PORT: int = os.getenv("SERVICE_PORT")
     SERVICE_RELOAD: int = os.getenv("SERVICE_RELOAD")
+
+    #  == настройки префиксов роутинга
+    API_V1_PREFIX: str = "/auth_api/v1"
 
     # == DataBase
     DATABASE: SettingsDataBase = SettingsDataBase()

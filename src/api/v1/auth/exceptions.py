@@ -4,3 +4,23 @@ class RefreshNotActiveError(Exception):
 
 class RefreshRotateError(Exception):
     """Не удалось атомарно проставить used_at и/или вставить новый токен."""
+
+
+class AuthHeaderMissingError(Exception):
+    """Нет заголовка Authorization или пустой токен."""
+
+
+class AuthSchemeInvalidError(Exception):
+    """Неверная схема авторизации (ожидаем Bearer)."""
+
+
+class TokenExpiredError(Exception):
+    """Подпись валидна, но токен просрочен."""
+
+
+class TokenInvalidError(Exception):
+    """Невалидный токен (подпись, структура, claims)."""
+
+
+class TokenWrongTypeError(Exception):
+    """Токен корректный, но тип не соответствует ожидаемому (access/refresh)."""

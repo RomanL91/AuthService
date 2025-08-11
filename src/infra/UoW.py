@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 # ропозитории приложений
 from apps.users.repository import UsersRepo
+from apps.auth.repository import AuthSessionsRepo, RefreshTokensRepo
 
 
 class IUnitOfWork(ABC):
@@ -35,6 +36,8 @@ class UnitOfWork(IUnitOfWork):
 
         # ленивые репозитории
         self._users_repo: Optional[UsersRepo] = None
+        self._sessions_repo: Optional[AuthSessionsRepo] = None
+        self._refresh_repo: Optional[RefreshTokensRepo] = None
 
     # Репозитории как свойства (ленивая инициализация)
     @property
@@ -43,6 +46,20 @@ class UnitOfWork(IUnitOfWork):
             assert self.session is not None, "UoW not entered"
             self._users_repo = UsersRepo(self.session)
         return self._users_repo
+
+    @property
+    def sessions(self) -> AuthSessionsRepo:
+        assert self.session is not None, "UoW not entered"
+        if self._sessions_repo is None:
+            self._sessions_repo = AuthSessionsRepo(self.session)
+        return self._sessions_repo
+
+    @property
+    def refresh(self) -> RefreshTokensRepo:
+        assert self.session is not None, "UoW not entered"
+        if self._refresh_repo is None:
+            self._refresh_repo = RefreshTokensRepo(self.session)
+        return self._refresh_repo
 
     async def __aenter__(self) -> "UnitOfWork":
         self.session = self._session_factory()

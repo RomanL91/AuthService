@@ -1,9 +1,9 @@
-from typing import Any, ClassVar, Generic, Iterable, Optional, Sequence, TypeVar
+from typing import Any, ClassVar, Generic, Optional, Sequence, TypeVar
 
 import sqlalchemy as sa
 from sqlalchemy.engine import Result
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import LoaderOption
+from sqlalchemy.orm import Load
 
 T = TypeVar("T")  # ORM-модель
 
@@ -13,7 +13,7 @@ class NotFoundError(Exception):
 
 
 class SQLAlchemyRepository(Generic[T]):
-    """Базовый репозиторий без commit/rollback. Работает поверх AsyncSession."""
+    """Базовый репозиторий (без commit/rollback). Работает поверх AsyncSession."""
 
     model: ClassVar[type[T]]
 
@@ -28,7 +28,10 @@ class SQLAlchemyRepository(Generic[T]):
 
     # ---- READ ----
     async def get_by_id(
-        self, id_: int, *, options: Sequence[LoaderOption] = ()
+        self,
+        id_: int,
+        *,
+        options: Sequence[Load] = (),
     ) -> Optional[T]:
         stmt = sa.select(self.model).where(self.model.id == id_)
         for opt in options:
@@ -39,7 +42,7 @@ class SQLAlchemyRepository(Generic[T]):
     async def one_or_none(
         self,
         *where: sa.sql.ClauseElement,
-        options: Sequence[LoaderOption] = (),
+        options: Sequence[Load] = (),
     ) -> Optional[T]:
         stmt = sa.select(self.model).where(*where)
         for opt in options:
@@ -47,10 +50,10 @@ class SQLAlchemyRepository(Generic[T]):
         res: Result = await self.session.execute(stmt)
         return res.scalar_one_or_none()
 
-    async def list(
+    async def find_many(
         self,
         *where: sa.sql.ClauseElement,
-        options: Sequence[LoaderOption] = (),
+        options: Sequence[Load] = (),
         order_by: Sequence[sa.ColumnElement[Any]] | None = None,
         limit: int | None = None,
         offset: int | None = None,
@@ -73,10 +76,10 @@ class SQLAlchemyRepository(Generic[T]):
         return int(res.scalar_one())
 
     async def exists(self, *where: sa.sql.ClauseElement) -> bool:
-        exists_stmt = (
-            sa.select(sa.literal(True)).where(*where).select_from(self.model).limit(1)
+        stmt = (
+            sa.select(sa.literal(True)).select_from(self.model).where(*where).limit(1)
         )
-        res: Result = await self.session.execute(exists_stmt)
+        res: Result = await self.session.execute(stmt)
         return res.scalar_one_or_none() is True
 
     # ---- UPDATE ----
@@ -94,7 +97,9 @@ class SQLAlchemyRepository(Generic[T]):
         return obj
 
     async def update_where(
-        self, data: dict[str, Any], *where: sa.sql.ClauseElement
+        self,
+        data: dict[str, Any],
+        *where: sa.sql.ClauseElement,
     ) -> list[T]:
         stmt = sa.update(self.model).where(*where).values(**data).returning(self.model)
         res: Result = await self.session.execute(stmt)
@@ -104,7 +109,7 @@ class SQLAlchemyRepository(Generic[T]):
     async def delete_by_id(self, id_: int) -> None:
         stmt = sa.delete(self.model).where(self.model.id == id_)
         res = await self.session.execute(stmt)
-        if res.rowcount == 0:
+        if (res.rowcount or 0) == 0:
             raise NotFoundError(f"{self.model.__name__} id={id_} not found")
 
     async def delete_where(self, *where: sa.sql.ClauseElement) -> int:

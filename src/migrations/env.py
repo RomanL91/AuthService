@@ -21,11 +21,12 @@ from core.models_mixins import Base
 
 # ВАЖНО: импортировать модели, чтобы они попали в Base.metadata
 from apps.users import models as users_models
+from apps.auth import models as auth_models
 
 target_metadata = Base.metadata
 
 # Подставляем URL БД из настроек в конфиг
-config.set_main_option("sqlalchemy.url", settings.db.url)
+config.set_main_option("sqlalchemy.url", settings.DATABASE.url)
 
 
 def run_migrations_offline() -> None:

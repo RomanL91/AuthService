@@ -209,3 +209,4 @@ __marimo__/
 # === add
 .python-version
 DATABASE
+certs

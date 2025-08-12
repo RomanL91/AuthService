@@ -1,5 +1,6 @@
 import jwt
 from typing import Any, Dict
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
 from fastapi import Request
@@ -16,6 +17,12 @@ from api.v1.auth.exceptions import (
     TokenInvalidError,
     TokenWrongTypeError,
 )
+
+
+@dataclass(frozen=True)
+class VerifiedToken:
+    token: str
+    payload: dict
 
 
 class JWTUtil:
@@ -98,18 +105,17 @@ jwt_util = JWTUtil(settings.AUTH_JWT)
 
 
 class JWTBearer(HTTPBearer):
-    """
-    FastAPI-зависимость, которая:
-    - принимает Authorization: Bearer <token>
-    - декодит JWT и проверяет тип (access/refresh)
-    - возвращает payload (dict)
-    """
-
-    def __init__(self, expected_token_type: str, auto_error: bool = True) -> None:
-        super().__init__(auto_error=auto_error)
+    def __init__(
+        self,
+        expected_token_type: str,
+        *,
+        scheme_name: str | None = None,
+        auto_error: bool = False,
+    ) -> None:
+        super().__init__(scheme_name=scheme_name, auto_error=auto_error)
         self.expected_token_type = expected_token_type
 
-    async def __call__(self, request: Request) -> dict:
+    async def __call__(self, request: Request) -> VerifiedToken:
         auth: str | None = request.headers.get("Authorization")
         if not auth:
             raise AuthHeaderMissingError()
@@ -121,6 +127,8 @@ class JWTBearer(HTTPBearer):
             raise AuthSchemeInvalidError()
 
         payload = jwt_util.decode_jwt(param)
-        if jwt_util.get_type(payload) != self.expected_token_type:
+        token_type = jwt_util.get_type(payload)
+        if token_type != self.expected_token_type:
             raise TokenWrongTypeError()
-        return payload
+
+        return VerifiedToken(token=param, payload=payload)

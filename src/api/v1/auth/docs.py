@@ -144,26 +144,21 @@ class LogoutPointDoc:
 class RefreshPointDoc:
     summary = "Обновление пары токенов (refresh → новая пара access/refresh)"
     description = (
-        "Принимает действительный **refresh-токен**, выполняет ротацию и возвращает **новую пару**: "
+        "Принимает действительный **refresh-токен** из заголовка "
+        "`Authorization: Bearer <refresh_token>`, выполняет ротацию и возвращает **новую пару**: "
         "`access_token` и `refresh_token`.\n\n"
         "**Как работает ротация:**\n"
         "1. Проверяется подпись и срок действия refresh-токена.\n"
-        "2. Старый refresh помечается как использованный, создаётся **новый** refresh (в той же «семье») и новый access.\n"
-        "3. Возвращается новая пара токенов; старый refresh больше использовать нельзя.\n\n"
+        "2. Старый refresh помечается как использованный; создаются **новый refresh** (в той же «семье») и **новый access**.\n"
+        "3. Возвращается новая пара токенов; старый refresh повторно использовать нельзя.\n\n"
         "**Защита от повторного использования (reuse):**\n"
-        "- Если ранее использованный/отозванный refresh будет предъявлен снова, вся «семья» ревокается, "
-        "а ответ — **401 Unauthorized**. Клиент должен потребовать повторный **login**.\n\n"
+        "- Если предъявлен ранее использованный/отозванный refresh, ревокается вся «семья» токенов и текущая сессия, "
+        "ответ — **401 Unauthorized**. Клиент должен заново выполнить **login**.\n\n"
         "**Правила и требования:**\n"
         "- Точка **не требует** access-токена — достаточно валидного refresh-токена.\n"
         "- Тип входного токена обязан быть `refresh`.\n"
-        "- Ответ включает `token_type = Bearer` и `expires_in` (TTL access-токена, в секундах).\n"
-        "- Рекомендуется после ответа **заменять** у клиента обе копии токенов на новые.\n\n"
-        "**Ответы:**\n"
-        "- **200** — выдана новая пара токенов;\n"
-        "- **400** — тип токена неверный (ожидался `refresh`);\n"
-        "- **401** — токен просрочен/недействителен **или** зафиксирован reuse;\n"
-        "- **422** — ошибки валидации входных данных;\n"
-        "- **500** — внутренняя ошибка (например, не удалось завершить ротацию).\n"
+        "- В ответе: `token_type = Bearer` и `expires_in` (TTL access-токена в секундах).\n"
+        "- После ответа **замените** у клиента обе копии токенов на новые.\n"
     )
 
     responses = {
@@ -181,11 +176,12 @@ class RefreshPointDoc:
             },
         },
         400: {
-            "description": "Invalid token type (ожидался refresh)",
+            "description": "Invalid token type (ожидался refresh) или некорректный формат клеймов",
             "content": {
                 "application/json": {
                     "examples": {
-                        "wrong_type": {"value": {"detail": "Invalid token type."}}
+                        "wrong_type": {"value": {"detail": "Invalid token type."}},
+                        "malformed": {"value": {"detail": "Malformed refresh token."}},
                     }
                 }
             },
@@ -204,33 +200,15 @@ class RefreshPointDoc:
                         "expired": {"value": {"detail": "Token expired."}},
                         "invalid": {"value": {"detail": "Invalid token"}},
                         "reuse": {"value": {"detail": "Refresh token reuse detected"}},
+                        "missing": {"value": {"detail": "Not authenticated"}},
                     }
                 }
             },
         },
-        422: {"description": "Ошибки валидации входных данных"},
         500: {
             "description": "Внутренняя ошибка — ротация не выполнена",
             "content": {
                 "application/json": {"example": {"detail": "Cannot refresh token"}}
-            },
-        },
-    }
-
-    openapi_extra = {
-        "requestBody": {
-            "required": True,
-            "content": {
-                "application/json": {
-                    "examples": {
-                        "basic": {
-                            "summary": "Пример запроса",
-                            "value": {
-                                "refresh_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
-                            },
-                        }
-                    }
-                }
             },
         },
     }

@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Request, Response, status
 
 from apps.users.schemas import UserLogin
 from apps.auth.schemas import TokenPair, RefreshRequest, SessionRead
-from api.v1.api_depends import UsersSvcDep, AuthSvcDep, AccessJWT
+from api.v1.api_depends import UsersSvcDep, AuthSvcDep, AccessJWT, RefreshJWT
 from api.v1.users.exceptions import UserInactiveError
 
 from api.v1.auth.docs import (
@@ -52,10 +52,9 @@ async def login(
     summary=RefreshPointDoc.summary,
     description=RefreshPointDoc.description,
     responses=RefreshPointDoc.responses,
-    openapi_extra=RefreshPointDoc.openapi_extra,
 )
-async def refresh(payload: RefreshRequest, auth: AuthSvcDep):
-    return await auth.rotate(refresh_token=payload.refresh_token)
+async def refresh(refresh: RefreshJWT, auth: AuthSvcDep):
+    return await auth.rotate(refresh_token=refresh.token)
 
 
 @router.post(
@@ -66,8 +65,8 @@ async def refresh(payload: RefreshRequest, auth: AuthSvcDep):
     responses=LogoutPointDoc.responses,
     openapi_extra=LogoutPointDoc.openapi_extra,
 )
-async def logout(payload: RefreshRequest, auth: AuthSvcDep):
-    await auth.logout_by_refresh(refresh_token=payload.refresh_token)
+async def logout(refresh: RefreshJWT, auth: AuthSvcDep):
+    await auth.logout_by_refresh(refresh_token=refresh.token)
     # 204 No Content
 
 

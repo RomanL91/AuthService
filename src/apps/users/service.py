@@ -12,6 +12,8 @@ from api.v1.users.exceptions import (
     WrongPasswordError,
 )
 
+from core.security import pwd_hasher
+
 
 @dataclass
 class UsersService:
@@ -37,9 +39,11 @@ class UsersService:
         if await self.uow.users.email_exists(email):
             raise EmailAlreadyUsedError(email)
 
+        hashed = pwd_hasher.hash(raw_password)
+
         user = await self.uow.users.create_user(
             email=email,
-            hashed_password=raw_password,
+            hashed_password=hashed,
             full_name=full_name,
             is_superuser=is_superuser,
         )
@@ -47,9 +51,6 @@ class UsersService:
         if activate and not user.is_active:
             user = await self.uow.users.activate(user.id)
 
-        # Явный commit опционален (UoW сделает авто-commit при выходе),
-        # но иногда полезен, если дальше идут внешние вызовы.
-        # await self.uow.commit()
         return user
 
     # ---- AUTH / PASSWORDS ----
@@ -57,9 +58,15 @@ class UsersService:
         user = await self.uow.users.get_by_email(email)
         if not user:
             raise UserNotFoundError(email)
-        # if not verify_password(raw_password, user.hashed_password):
-        if raw_password != user.hashed_password:
+        if not pwd_hasher.verify(raw_password, user.hashed_password):
             raise WrongPasswordError()
+
+        # мягкая миграция
+        if pwd_hasher.needs_rehash(user.hashed_password):
+            new_hash = pwd_hasher.hash(raw_password)
+            async with self.uow.savepoint():
+                await self.uow.users.set_password(user.id, new_hash)
+
         return user
 
     async def change_password(
@@ -68,11 +75,12 @@ class UsersService:
         user = await self.uow.users.get_by_id(user_id)
         if not user:
             raise UserNotFoundError(user_id)
-        # if not verify_password(current_password, user.hashed_password):
-        if current_password != user.hashed_password:
+        if not pwd_hasher.verify(current_password, user.hashed_password):
             raise WrongPasswordError()
 
-        return await self.uow.users.set_password(user_id, new_password)
+        new_hash = pwd_hasher.hash(new_password)
+
+        return await self.uow.users.set_password(user_id, new_hash)
 
     # ---- UPDATE PROFILE ----
     async def update_profile(

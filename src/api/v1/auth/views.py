@@ -1,7 +1,7 @@
-from fastapi import APIRouter, HTTPException, Request, Response, status
+from fastapi import APIRouter, Request, Response, status
 
 from apps.users.schemas import UserLogin
-from apps.auth.schemas import TokenPair, RefreshRequest, SessionRead
+from apps.auth.schemas import TokenPair, SessionRead
 from api.v1.api_depends import UsersSvcDep, AuthSvcDep, AccessJWT, RefreshJWT
 from api.v1.users.exceptions import UserInactiveError
 
@@ -63,7 +63,6 @@ async def refresh(refresh: RefreshJWT, auth: AuthSvcDep):
     summary=LogoutPointDoc.summary,
     description=LogoutPointDoc.description,
     responses=LogoutPointDoc.responses,
-    openapi_extra=LogoutPointDoc.openapi_extra,
 )
 async def logout(refresh: RefreshJWT, auth: AuthSvcDep):
     await auth.logout_by_refresh(refresh_token=refresh.token)
@@ -79,7 +78,7 @@ async def logout(refresh: RefreshJWT, auth: AuthSvcDep):
     openapi_extra=LogoutAllPointDoc.openapi_extra,
 )
 async def logout_all(access: AccessJWT, auth: AuthSvcDep):
-    user_id = int(access["user_id"])
+    user_id = int(access.payload["user_id"])
     await auth.logout_all(user_id=user_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
@@ -93,6 +92,6 @@ async def logout_all(access: AccessJWT, auth: AuthSvcDep):
     responses=SessionsDoc.responses,
 )
 async def list_my_sessions(access: AccessJWT, auth: AuthSvcDep):
-    user_id = int(access["user_id"])
+    user_id = int(access.payload["user_id"])
     items = await auth.list_sessions(user_id=user_id)
     return items

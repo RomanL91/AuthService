@@ -37,7 +37,7 @@ async def register_user(payload: UserCreate, svc: UsersSvcDep):
     responses=MePointDoc.responses,
 )
 async def me(access: AccessJWT, users: UsersSvcDep):
-    user_id = int(access["user_id"])
+    user_id = int(access.payload["user_id"])
     user = await users.get(user_id)
     if not user:
         raise CurrentUserNotFoundError()

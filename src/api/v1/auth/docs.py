@@ -77,29 +77,19 @@ class LoginPointDoc:
 class LogoutPointDoc:
     summary = "Выход из текущей сессии (revoke by refresh)"
     description = (
-        "Отзывает **текущую сессию** пользователя по переданному `refresh_token`.\n\n"
-        "**Поведение и правила:**\n"
-        "- Принимает `refresh_token` в теле запроса (тип токена должен быть `refresh`).\n"
-        "- Токен проверяется на подпись и срок действия; при успехе связанную сессию помечает как отозванную.\n"
-        "- Операция **идемпотентна**: повторный вызов с тем же токеном также вернёт `204 No Content`.\n"
-        "- Точка **не требует** access-токена — достаточно валидного refresh-токена.\n\n"
-        "**Ответы:**\n"
-        "- **204** — сессия отозвана (или уже была отозвана ранее);\n"
-        "- **400** — тип токена неверный (ожидался `refresh`);\n"
-        "- **401** — токен просрочен или недействителен;\n"
-        "- **422** — ошибки валидации входных данных.\n"
+        "Отзывает **текущую сессию** пользователя по **refresh-токену**, переданному в заголовке "
+        "`Authorization: Bearer <refresh>`.\n\n"
+        "**Поведение:**\n"
+        "- Токен проверяется на подпись/срок; привязанная сессия помечается как отозванная.\n"
+        "- Операция идемпотентна — повторный вызов вернёт `204 No Content`.\n"
+        "- Access-токен не требуется.\n"
     )
-
     responses = {
         204: {"description": "Logged out — текущая сессия отозвана"},
         400: {
-            "description": "Invalid token type",
+            "description": "Invalid token type (ожидался refresh)",
             "content": {
-                "application/json": {
-                    "examples": {
-                        "wrong_type": {"value": {"detail": "Invalid token type."}}
-                    }
-                }
+                "application/json": {"example": {"detail": "Invalid token type."}}
             },
         },
         401: {
@@ -107,7 +97,7 @@ class LogoutPointDoc:
             "headers": {
                 "WWW-Authenticate": {
                     "schema": {"type": "string"},
-                    "description": "Обычно 'Bearer' для совместимости клиентов",
+                    "description": "Обычно 'Bearer'",
                 }
             },
             "content": {
@@ -115,25 +105,7 @@ class LogoutPointDoc:
                     "examples": {
                         "expired": {"value": {"detail": "Token expired."}},
                         "invalid": {"value": {"detail": "Invalid token"}},
-                    }
-                }
-            },
-        },
-        422: {"description": "Ошибки валидации входных данных"},
-    }
-
-    openapi_extra = {
-        "requestBody": {
-            "required": True,
-            "content": {
-                "application/json": {
-                    "examples": {
-                        "basic": {
-                            "summary": "Пример запроса",
-                            "value": {
-                                "refresh_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
-                            },
-                        }
+                        "missing": {"value": {"detail": "Not authenticated"}},
                     }
                 }
             },

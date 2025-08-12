@@ -1,0 +1,20 @@
+services:
+  auth_service_main:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: auth_service_main
+    env_file:
+      - src/.env
+    ports:
+      - "${SERVICE_PORT:-9998}:9998"
+    volumes:
+      - ./certs:/app/certs:ro
+    networks:
+      - authnetwork
+    restart: unless-stopped
+
+networks:
+  authnetwork:
+    external: true

@@ -2,8 +2,8 @@ import os
 
 from pathlib import Path
 
-from pydantic import BaseModel
-from pydantic_settings import BaseSettings
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from dotenv import load_dotenv
 
@@ -15,6 +15,11 @@ BASE_DIR = Path(__file__).parent.parent
 
 
 class SettingsDataBase(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=str(BASE_DIR / ".env"),
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
     DB_NAME: str = os.getenv("POSTGRES_DB")
     DB_USER: str = os.getenv("POSTGRES_USER")
     DB_PASSWORD: str = os.getenv("POSTGRES_PASSWORD")
@@ -28,27 +33,40 @@ class SettingsDataBase(BaseSettings):
         return f"postgresql+asyncpg://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
 
 
-class SettingsAuth(BaseModel):
+class SettingsAuth(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=str(BASE_DIR / ".env"),
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
     # пути к ключам по умолчанию: ./certs/private.pem, ./certs/public.pem
     private_key_path: Path = BASE_DIR / "certs" / "private.pem"
     public_key_path: Path = BASE_DIR / "certs" / "public.pem"
 
-    algorithm: str = os.getenv("JWT_ALG", "RS256")
+    algorithm: str = Field(default="RS256", validation_alias="JWT_ALG")
 
-    token_type_field: str = os.getenv("JWT_TYPE_FIELD", "type")
-    token_type: str = os.getenv("JWT_TOKEN_TYPE", "Bearer")
+    token_type_field: str = Field(default="type", validation_alias="JWT_TYPE_FIELD")
+    token_type: str = Field(default="Bearer", validation_alias="JWT_TOKEN_TYPE")
 
-    access_token_type: str = os.getenv("JWT_ACCESS_TYPE", "access")
-    refresh_token_type: str = os.getenv("JWT_REFRESH_TYPE", "refresh")
+    access_token_type: str = Field(default="access", validation_alias="JWT_ACCESS_TYPE")
+    refresh_token_type: str = Field(
+        default="refresh", validation_alias="JWT_REFRESH_TYPE"
+    )
 
-    # сроки жизни в минутах
-    access_token_expire: int = int(os.getenv("JWT_ACCESS_TTL_MIN", "15"))
-    refresh_token_expire: int = int(
-        os.getenv("JWT_REFRESH_TTL_MIN", str(60 * 24 * 14))
-    )  # 14 дней
+    # TTL в минутах (pydantic сам приведёт из строки в int)
+    access_token_expire: int = Field(default=15, validation_alias="JWT_ACCESS_TTL_MIN")
+    refresh_token_expire: int = Field(
+        default=14 * 24 * 60,  # 20160
+        validation_alias="JWT_REFRESH_TTL_MIN",
+    )
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=str(BASE_DIR / ".env"),
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
     # == базовые настройки запуска сервиса
     SERVICE_HOST: str = os.getenv("SERVICE_HOST")
     SERVICE_PORT: int = os.getenv("SERVICE_PORT")

@@ -19,7 +19,6 @@
 * [Требования](#требования)
 * [Конфигурация (ENV)](#конфигурация-env)
 * [Генерация RSA‑ключей](#генерация-rsa-ключей)
-* [Запуск локально (Poetry)](#запуск-локально-poetry)
 * [Запуск в Docker](#запуск-в-docker)
 * [Миграции Alembic](#миграции-alembic)
 * [Эндпоинты](#эндпоинты)
@@ -124,19 +123,6 @@ openssl rsa -in private.pem -pubout -out public.pem
 
 ---
 
-## Запуск локально (Poetry)
-
-```bash
-poetry install
-poetry run alembic upgrade head
-poetry run python src/main.py
-# или: poetry run uvicorn src.main:app --host 0.0.0.0 --port 9998 --reload
-```
-
-UI: `http://localhost:9998/docs`, ReDoc: `http://localhost:9998/redoc`.
-
----
-
 ## Запуск в Docker
 
 ### БД уже крутится в отдельном compose
@@ -181,6 +167,8 @@ docker compose up --build
 ```
 
 Контейнер подождёт БД, применит миграции и запустит Uvicorn.
+
+UI: `http://localhost:9998/docs`, ReDoc: `http://localhost:9998/redoc`.
 
 ## Эндпоинты
 

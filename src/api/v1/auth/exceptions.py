@@ -24,3 +24,11 @@ class TokenInvalidError(Exception):
 
 class TokenWrongTypeError(Exception):
     """Токен корректный, но тип не соответствует ожидаемому (access/refresh)."""
+
+
+class MalformedRefreshTokenError(Exception):
+    """В refresh отсутствуют/битые клеймы (sid/fam/jti) или неверный формат."""
+
+
+class RefreshReuseDetectedError(Exception):
+    """Повторный показ (reuse) уже использованного/отозванного refresh."""

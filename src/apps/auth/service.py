@@ -10,7 +10,12 @@ from fastapi import HTTPException
 from infra.UoW import UnitOfWork
 from apps.auth.utils import jwt_util
 from apps.auth.models import RevokeReason, AuthSessions
-from api.v1.auth.exceptions import RefreshNotActiveError
+from api.v1.auth.exceptions import (
+    RefreshNotActiveError,
+    MalformedRefreshTokenError,
+    RefreshReuseDetectedError,
+    TokenWrongTypeError,
+)
 
 
 def _utcnow() -> datetime:
@@ -83,22 +88,21 @@ class AuthService:
 
     # ----- REFRESH (ротация) -----
     async def rotate(self, *, refresh_token: str) -> dict:
-        """
-        Атомарно помечает старый refresh использованным и создаёт новый.
-        Возвращает новую пару токенов. Детектит reuse.
-        """
+        # 1) валидируем и парсим payload
         payload = jwt_util.decode_jwt(refresh_token)
-        uid = int(payload["user_id"])
+
         if payload.get("type") != jwt_util.refresh_token_type:
-            raise HTTPException(status_code=400, detail="Invalid token type")
+            raise TokenWrongTypeError()
 
         try:
             sid = UUID(payload["sid"])
             fam = UUID(payload["fam"])
         except Exception:
-            raise HTTPException(status_code=400, detail="Malformed refresh token")
+            raise MalformedRefreshTokenError()
 
-        # 1) сгенерить новый refresh (с тем же sid/fam) и access
+        uid = int(payload["user_id"])
+
+        # 2) генерим новые токены
         new_jti = uuid4()
         new_refresh = jwt_util.encode_jwt(
             user_id=uid,
@@ -111,7 +115,7 @@ class AuthService:
             extra={"sid": payload["sid"]},
         )
 
-        # 2) атомарная ротация в БД
+        # 3) атомарная ротация в БД
         try:
             await self.uow.refresh.rotate_active(
                 old_token_hash=_hash_refresh(refresh_token),
@@ -121,16 +125,16 @@ class AuthService:
                 expires_at=new_refresh.expires_at,
             )
         except RefreshNotActiveError:
-            # reuse или токен не активен → отозвать всю семью и сессию
+            # reuse/отозван — ревок всей семьи + сессии и доменная ошибка
             await self.uow.refresh.revoke_family(
                 fam, reason=RevokeReason.REUSE_DETECTED
             )
             await self.uow.sessions.revoke_session(
                 sid, reason=RevokeReason.REUSE_DETECTED
             )
-            raise HTTPException(status_code=401, detail="Refresh reuse detected")
+            raise RefreshReuseDetectedError()
 
-        # 3) touch last_seen_at у сессии
+        # 4) touch last_seen
         await self.uow.sessions.touch(sid)
 
         return {

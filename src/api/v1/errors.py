@@ -18,6 +18,8 @@ from api.v1.auth.exceptions import (
     TokenExpiredError,
     TokenInvalidError,
     TokenWrongTypeError,
+    MalformedRefreshTokenError,
+    RefreshReuseDetectedError,
 )
 
 
@@ -129,6 +131,17 @@ auth_errors_handlers = ExceptionHandlers(
             status_code=status.HTTP_400_BAD_REQUEST,
             code="invalid_token_type",
             message="Invalid token type.",
+        ),
+        MalformedRefreshTokenError: ExceptionSpec(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            code="malformed_refresh_token",
+            message="Malformed refresh token.",
+        ),
+        RefreshReuseDetectedError: ExceptionSpec(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            code="refresh_reuse_detected",
+            message="Refresh token reuse detected",
+            headers={"WWW-Authenticate": "Bearer"},
         ),
     }
 )

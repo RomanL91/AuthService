@@ -3,55 +3,68 @@ from fastapi import APIRouter, HTTPException, Request, Response, status
 from apps.users.schemas import UserLogin
 from apps.auth.schemas import TokenPair, RefreshRequest, SessionRead
 from api.v1.api_depends import UsersSvcDep, AuthSvcDep, AccessJWT
-from api.v1.users.exceptions import UserNotFoundError, WrongPasswordError
+from api.v1.users.exceptions import UserInactiveError
+
+from api.v1.auth.docs import (
+    LoginPointDoc,
+    LogoutPointDoc,
+    RefreshPointDoc,
+    LogoutAllPointDoc,
+    SessionsListPointDoc as SessionsDoc,
+)
 
 
 router = APIRouter(tags=["Auth"])
 
 
-@router.post("/login", response_model=TokenPair, status_code=status.HTTP_200_OK)
+@router.post(
+    "/login",
+    response_model=TokenPair,
+    status_code=status.HTTP_200_OK,
+    summary=LoginPointDoc.summary,
+    description=LoginPointDoc.description,
+    responses=LoginPointDoc.responses,
+    openapi_extra=LoginPointDoc.openapi_extra,
+)
 async def login(
     payload: UserLogin, request: Request, users: UsersSvcDep, auth: AuthSvcDep
 ):
-    # 1) аутентификация пользователя
-    try:
-        user = await users.authenticate(
-            email=payload.email,
-            raw_password=payload.password.get_secret_value(),
-        )
-    except (UserNotFoundError, WrongPasswordError):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+    user = await users.authenticate(
+        email=payload.email,
+        raw_password=payload.password.get_secret_value(),
+    )
     if not user.is_active:
-        raise HTTPException(status_code=403, detail="User is inactive")
+        raise UserInactiveError()
 
-    # 2) создать сессию и выдать пару токенов
-    ua = request.headers.get("user-agent")
-    ip = request.client.host if request.client else None
+    # создать сессию и выдать пару
+    ua = (request.headers.get("user-agent") or "")[:255]
+    ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip() or (
+        request.client.host if request.client else None
+    )
     pair = await auth.login(user_id=user.id, user_agent=ua, ip_address=ip)
     return pair
 
 
-@router.post("/refresh", response_model=TokenPair, status_code=status.HTTP_200_OK)
+@router.post(
+    "/refresh",
+    response_model=TokenPair,
+    status_code=status.HTTP_200_OK,
+    summary=RefreshPointDoc.summary,
+    description=RefreshPointDoc.description,
+    responses=RefreshPointDoc.responses,
+    openapi_extra=RefreshPointDoc.openapi_extra,
+)
 async def refresh(payload: RefreshRequest, auth: AuthSvcDep):
-    try:
-        pair = await auth.rotate(refresh_token=payload.refresh_token)
-        return pair
-    except HTTPException as e:
-        # прокидываем как есть (401 reuse/expired, 400 тип не тот)
-        raise e
-    except Exception:
-        raise HTTPException(status_code=500, detail="Cannot refresh token")
+    return await auth.rotate(refresh_token=payload.refresh_token)
 
 
 @router.post(
     "/logout",
     status_code=status.HTTP_204_NO_CONTENT,
-    summary="Logout (revoke current session)",
-    responses={
-        204: {"description": "Logged out"},
-        400: {"description": "Invalid token type"},
-        401: {"description": "Invalid/expired token"},
-    },
+    summary=LogoutPointDoc.summary,
+    description=LogoutPointDoc.description,
+    responses=LogoutPointDoc.responses,
+    openapi_extra=LogoutPointDoc.openapi_extra,
 )
 async def logout(payload: RefreshRequest, auth: AuthSvcDep):
     await auth.logout_by_refresh(refresh_token=payload.refresh_token)
@@ -61,7 +74,10 @@ async def logout(payload: RefreshRequest, auth: AuthSvcDep):
 @router.post(
     "/logout-all",
     status_code=status.HTTP_204_NO_CONTENT,
-    summary="Logout from all devices (revoke all sessions and refresh tokens)",
+    summary=LogoutAllPointDoc.summary,
+    description=LogoutAllPointDoc.description,
+    responses=LogoutAllPointDoc.responses,
+    openapi_extra=LogoutAllPointDoc.openapi_extra,
 )
 async def logout_all(access: AccessJWT, auth: AuthSvcDep):
     user_id = int(access["user_id"])
@@ -73,7 +89,9 @@ async def logout_all(access: AccessJWT, auth: AuthSvcDep):
     "/sessions",
     response_model=list[SessionRead],
     status_code=status.HTTP_200_OK,
-    summary="List active sessions of current user",
+    summary=SessionsDoc.summary,
+    description=SessionsDoc.description,
+    responses=SessionsDoc.responses,
 )
 async def list_my_sessions(access: AccessJWT, auth: AuthSvcDep):
     user_id = int(access["user_id"])

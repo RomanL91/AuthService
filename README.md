@@ -117,6 +117,7 @@ openssl rsa -in private.pem -pubout -out public.pem
 Положите `private.pem` и `public.pem` в выбранную папку `certs/`.
 
 * **Копировать в образ** (рекомендуется): `src/certs/` → `COPY src/certs/ /app/certs/`
+* **Включено в git**
 * **Монтировать томом**: `./certs:/app/certs:ro`
 
 Пути по умолчанию задаются в `SettingsAuth` (`core/settings.py`).
@@ -126,6 +127,7 @@ openssl rsa -in private.pem -pubout -out public.pem
 ## Запуск в Docker
 
 ### БД уже крутится в отдельном compose
+БД в директории DATABASE (docker-compose.yml + .env)
 
 1. Убедитесь, что сеть существует:
 

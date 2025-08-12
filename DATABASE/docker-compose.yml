@@ -1,0 +1,25 @@
+services:
+  auth_service_database:
+    image: postgres:15.4
+    container_name: auth_service_database
+    restart: unless-stopped
+    volumes:
+      - auth_service_database:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+    ports:
+      - "${POSTGRES_PORT}:${POSTGRES_PORT}"
+    command: postgres -c port=${POSTGRES_PORT}
+    networks:
+      - authnetwork
+
+volumes:
+  auth_service_database:
+
+
+networks:
+  authnetwork:
+    external: true

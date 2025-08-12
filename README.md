@@ -26,7 +26,6 @@
 * [Примеры cURL](#примеры-curl)
 * [Модели и поведение](#модели-и-поведение)
 * [Безопасность паролей](#безопасность-паролей)
-* [Отладка / FAQ](#отладка--faq)
 * [Лицензия](#лицензия)
 
 ---
@@ -140,7 +139,7 @@ UI: `http://localhost:9998/docs`, ReDoc: `http://localhost:9998/redoc`.
 
 ## Запуск в Docker
 
-### Вариант A — БД уже крутится в отдельном compose
+### БД уже крутится в отдельном compose
 
 1. Убедитесь, что сеть существует:
 
@@ -183,31 +182,6 @@ docker compose up --build
 
 Контейнер подождёт БД, применит миграции и запустит Uvicorn.
 
-### Вариант B — БД на хосте
-
-Поставьте `POSTGRES_HOST=host.docker.internal` и реальный порт вашей БД.
-
----
-
-## Миграции Alembic
-
-```bash
-# создать ревизию
-alembic revision --autogenerate -m "message"
-# накатить
-alembic upgrade head
-# откатить
-alembic downgrade -1
-```
-
-> В контейнере миграции запускаются автоматически из `entrypoint.sh`. Ручной запуск:
-
-```bash
-docker compose exec auth_service_main alembic upgrade head
-```
-
----
-
 ## Эндпоинты
 
 Базовый префикс: **`/auth_api/v1`**
@@ -217,8 +191,8 @@ docker compose exec auth_service_main alembic upgrade head
 | `POST` | `/users/register`  | —                 | Регистрация пользователя   |
 | `GET`  | `/users/me`        | `Bearer <access>` | Текущий профиль            |
 | `POST` | `/auth/login`      | —                 | Вход, выдаёт пару токенов  |
-| `POST` | `/auth/refresh`    | — (тело: refresh) | Ротация, выдаёт новую пару |
-| `POST` | `/auth/logout`     | — (тело: refresh) | Выход из текущей сессии    |
+| `POST` | `/auth/refresh`    | `Bearer <refresh>`| Ротация, выдаёт новую пару |
+| `POST` | `/auth/logout`     | `Bearer <refresh>`| Выход из текущей сессии    |
 | `POST` | `/auth/logout-all` | `Bearer <access>` | Выход со всех устройств    |
 | `GET`  | `/auth/sessions`   | `Bearer <access>` | Список активных сессий     |
 
@@ -245,9 +219,11 @@ curl http://localhost:9998/auth_api/v1/users/me \
   -H 'Authorization: Bearer <ACCESS>'
 
 # Ротация (refresh)
-curl -X POST http://localhost:9998/auth_api/v1/auth/refresh \
-  -H 'Content-Type: application/json' \
-  -d '{"refresh_token":"<REFRESH>"}'
+curl -X 'POST' \
+  'http://localhost:9998/auth_api/v1/auth/refresh' \
+  -H 'accept: application/json' \
+  -H 'Authorization: Bearer <REFRESH>' \
+  -d ''
 ```
 
 ---
@@ -264,19 +240,11 @@ curl -X POST http://localhost:9998/auth_api/v1/auth/refresh \
 ## Безопасность паролей
 
 * Используется **bcrypt** через Passlib (`core/security.py`).
-* Хранить только хэш. Никогда не логируйте raw‑пароли.
+* Хранить только хэш. Никогда не логируем raw‑пароли.
 * Сложность и правила — на стороне валидации схем / клиента.
 
 ---
 
-## Отладка / FAQ
-
-* **Не коннектится к БД в контейнере** — проверьте `POSTGRES_HOST` (имя сервиса БД) и сеть Docker.
-* **`bcrypt: no backends available`** — убедитесь, что установлен `passlib[bcrypt]`; пересоберите образ.
-* **`ModuleNotFoundError: core` при Alembic** — проверьте `env.py` (добавление `src/` в `sys.path`) и рабочую директорию запуска.
-* **Замочек в Swagger** — добавьте `Bearer <ACCESS>` через Authorize.
-
----
 
 ## Лицензия
 
